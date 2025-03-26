@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Chart.js -->
+    <link rel="stylesheet" href="style.css">
+    <title>Ülke Bilgi Sistemi</title>
+  </head>
+  <body>
+    <div class="container my-5">
+      <div id="errors"></div>
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="input-group mb-3">
+            <input
+              id="txtSearch"
+              type="text"
+              class="form-control"
+              placeholder="Ülke adı giriniz..."
+              aria-label="Ülke adı giriniz"
+              role="searchbox"
+              autocomplete="off"
+            />
+            <button id="btnSearch" type="button" class="btn btn-primary" aria-label="Ara">
+              <i class="fas fa-search me-2"></i>Ara
+            </button>
+            <button id="btnLocation" type="button" class="btn btn-danger" title="Konumunu Bul" aria-label="Konumunu Bul">
+              <i class="fa-solid fa-location-crosshairs"></i>
+            </button>
+          </div>
+          <div class="input-group">
+            <select id="continentSelect" class="form-select" aria-label="Kıta Seçimi">
+              <option value="">Kıta Seçiniz</option>
+              <option value="Africa">Afrika</option>
+              <option value="Americas">Amerika</option>
+              <option value="Asia">Asya</option>
+              <option value="Europe">Avrupa</option>
+              <option value="Oceania">Okyanusya</option>
+            </select>
+            <button id="btnFilterByContinent" type="button" class="btn btn-primary" aria-label="Kıtaya Göre Filtrele">
+              <i class="fas fa-globe me-2"></i>Kıtaya Göre Filtrele
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="loading-container">
+        <div class="loading-animation">
+          <div class="circle"></div>
+          <div class="circle"></div>
+          <div class="circle"></div>
+          <p style="color: var(--text-secondary); margin-top: 1rem; font-size: 1.1rem;">Yükleniyor...</p>
+        </div>
+      </div>
+      <div id="details">
+        <div class="card mb-3">
+          <div class="card-header">
+            <i class="fas fa-globe-americas me-2"></i>Arama Sonucu
+          </div>
+          <div class="card-body">
+            <div class="row" id="country-details"></div>
+            <!-- Harita için div -->
+            <div class="map-container mt-3">
+              <div id="countryMap"></div>
+              <div class="map-legend">
+                <h5><i class="fas fa-cloud-sun me-2"></i>Hava Durumu</h5>
+                <div class="legend-items" id="weatherLegend"></div>
+              </div>
+            </div>
+            <!-- İstatistikler için div -->
+            <div class="country-stats mt-4">
+              <h4><i class="fas fa-chart-bar me-2"></i>Ülke İstatistikleri</h4>
+              <div class="stats-grid mt-3">
+                <div class="stat-card population">
+                  <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                  </div>
+                  <div class="stat-info">
+                    <h5>Nüfus</h5>
+                    <div class="stat-value" id="populationValue"></div>
+                    <div class="stat-detail" id="populationDensity"></div>
+                  </div>
+                </div>
+                
+                <div class="stat-card area">
+                  <div class="stat-icon">
+                    <i class="fas fa-map"></i>
+                  </div>
+                  <div class="stat-info">
+                    <h5>Yüzölçümü</h5>
+                    <div class="stat-value" id="areaValue"></div>
+                    <div class="stat-detail" id="areaComparison"></div>
+                  </div>
+                </div>
+
+                <div class="stat-card timezone">
+                  <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
+                  </div>
+                  <div class="stat-info">
+                    <h5>Saat Dilimi</h5>
+                    <div class="stat-value" id="timezoneValue"></div>
+                    <div class="stat-detail" id="currentTime"></div>
+                  </div>
+                </div>
+
+                <div class="stat-card car">
+                  <div class="stat-icon">
+                    <i class="fas fa-car"></i>
+                  </div>
+                  <div class="stat-info">
+                    <h5>Trafik</h5>
+                    <div class="stat-value" id="carSide"></div>
+                    <div class="stat-detail" id="carCode"></div>
+                  </div>
+                </div>
+
+                <div class="stat-card phone">
+                  <div class="stat-icon">
+                    <i class="fas fa-phone"></i>
+                  </div>
+                  <div class="stat-info">
+                    <h5>Telefon Kodu</h5>
+                    <div class="stat-value" id="phoneCode"></div>
+                    <div class="stat-detail" id="phoneExample"></div>
+                  </div>
+                </div>
+
+                <div class="stat-card internet">
+                  <div class="stat-icon">
+                    <i class="fas fa-globe"></i>
+                  </div>
+                  <div class="stat-info">
+                    <h5>İnternet</h5>
+                    <div class="stat-value" id="internetDomain"></div>
+                    <div class="stat-detail" id="internetExample"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Para Birimi Çevirici -->
+            <div class="currency-converter mt-4">
+              <h4><i class="fas fa-money-bill-wave me-2"></i>Para Birimi Çevirici</h4>
+              <div class="row mt-3">
+                <div class="col-md-5">
+                  <input type="number" id="amount" class="form-control" placeholder="Miktar" aria-label="Para miktarı">
+                </div>
+                <div class="col-md-3">
+                  <select id="fromCurrency" class="form-select" aria-label="Kaynak para birimi"></select>
+                </div>
+                <div class="col-md-3">
+                  <select id="toCurrency" class="form-select" aria-label="Hedef para birimi"></select>
+                </div>
+                <div class="col-md-1">
+                  <button id="convertBtn" class="btn btn-primary" aria-label="Dönüştür">
+                    <i class="fas fa-exchange-alt"></i>
+                  </button>
+                </div>
+              </div>
+              <div id="conversionResult" class="mt-3"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card mb-3">
+          <div class="card-header">
+            <i class="fas fa-map-marker-alt me-2"></i>Komşu Ülkeler
+          </div>
+          <div class="card-body">
+            <div class="row" id="neighbors"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Theme Toggle Button -->
+    <button class="theme-toggle" id="themeToggle" title="Tema Değiştir" aria-label="Tema Değiştir">
+      <i class="fas fa-sun"></i>
+      <i class="fas fa-moon"></i>
+    </button>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- GeoJSON -->
+    <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@latest/dist/leaflet-geoman.min.js"></script>
+    <!-- Weather Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.10/css/weather-icons.min.css">
+    <!-- Diğer script etiketlerinden önce -->
+    <script type="module" src="script.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
