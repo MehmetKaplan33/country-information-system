@@ -1,127 +1,117 @@
-# 🌍 Country Information System
+# 🌍 Ülke Bilgi Sistemi
 
-A dynamic web application that provides comprehensive information about countries worldwide, including weather data, currency conversion, and interactive maps.
+Ülkeler hakkında kapsamlı bilgi sunan, canlı hava durumu, döviz çevirici ve interaktif harita özelliklerine sahip modern bir web uygulaması.
 
-## ✨ Features
+## ✨ Özellikler
 
-- **Advanced Country Search**
+- **Gelişmiş Ülke Arama**
+  - Gerçek zamanlı otomatik tamamlama
+  - Yerel dillerde arama
+  - Detaylı ülke bilgileri
 
-  - Real-time autocomplete
-  - Search by native names
-  - Detailed country information
+- **İnteraktif Harita**
+  - Dinamik konum görüntüleme
+  - Her bölge için hava durumu
+  - Coğrafi veri gösterimi
 
-- **Interactive Map Integration**
+- **Hava Durumu**
+  - Anlık hava durumu
+  - Sıcaklık ve nem bilgisi
+  - Başkent ve şehirler için tahminler
 
-  - Dynamic location display
-  - Neighboring countries visualization
-  - Geographic data presentation
+- **Döviz Çevirici**
+  - Anlık döviz kurları
+  - Çoklu para birimi desteği
+  - Kolay kullanımlı arayüz
 
-- **Live Weather Data**
+- **Ek Özellikler**
+  - 🌓 Karanlık/Aydınlık tema
+  - 📊 Nüfus istatistikleri
+  - 🗺️ Bölgesel bilgiler
+  - 🏳️ Komşu ülkeler listesi
 
-  - Current weather conditions
-  - Temperature and humidity
-  - Weather forecasts for capitals
+## 🚀 Kurulum
 
-- **Currency Converter**
+### Gereksinimler
 
-  - Real-time exchange rates
-  - Support for multiple currencies
-  - Historical rate data
-
-- **Additional Features**
-  - 🌓 Dark/Light theme support
-  - 📊 Population statistics
-  - 🗺️ Regional information
-  - 🏳️ Neighboring countries list
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Modern web browser
-- API Keys for:
+- Node.js (v14 veya üzeri)
+- npm veya yarn
+- API Anahtarları:
   - OpenWeather API
   - OpenCage Geocoding API
   - ExchangeRate API
 
-### Installation
+### Kurulum Adımları
 
-1. Clone the repository
-
+1. Repoyu klonlayın
 ```bash
-git clone https://github.com/yourusername/country-information-system.git
+git clone https://github.com/mehmetkaplanse/Country-Information-System.git
 ```
 
-2. Navigate to project directory
-
+2. Proje dizinine gidin
 ```bash
-cd country-information-system
+cd Country-Information-System
 ```
 
-3. Create configuration file
-
+3. Bağımlılıkları yükleyin
 ```bash
-cp config.js.example config.js
+npm install
 ```
 
-4. Update `config.js` with your API keys
-
-```javascript
-export default {
-  weatherApiKey: "YOUR_KEY",
-  geocodeApiKey: "YOUR_KEY",
-  exchangeRateApiKey: "YOUR_KEY",
-};
+4. `.env` dosyası oluşturun ve API anahtarlarınızı ekleyin
+```env
+WEATHER_API_KEY=your_openweather_api_key
+GEOCODE_API_KEY=your_opencage_api_key
+EXCHANGE_RATE_API_KEY=your_exchangerate_api_key
+PORT=3000
 ```
 
-5. Run with a local server (e.g., VS Code Live Server)
+5. Uygulamayı başlatın
+```bash
+npm start
+```
 
-## 🛠️ Built With
+## 🛠️ Kullanılan Teknolojiler
 
 - **Frontend**
-
   - HTML5
   - CSS3
   - JavaScript (ES6+)
 
-- **Libraries**
+- **Backend**
+  - Node.js
+  - Express.js
 
-  - [Leaflet.js](https://leafletjs.com/) - Interactive maps
-  - [Chart.js](https://www.chartjs.org/) - Data visualization
-  - [Font Awesome](https://fontawesome.com/) - Icons
+- **Kütüphaneler**
+  - [Leaflet.js](https://leafletjs.com/) - İnteraktif haritalar
+  - [Font Awesome](https://fontawesome.com/) - İkonlar
   - [Bootstrap](https://getbootstrap.com/) - UI Framework
 
-- **APIs**
+- **API'ler**
   - [RestCountries API](https://restcountries.com/)
   - [OpenWeather API](https://openweathermap.org/api)
   - [OpenCage Geocoding](https://opencagedata.com/)
   - [ExchangeRate API](https://www.exchangerate-api.com/)
 
-## 🤝 Contributing
+## 📝 Lisans
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına bakınız.
 
-## 📝 License
+## 👏 Teşekkürler
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- [RestCountries](https://restcountries.com/) - Kapsamlı ülke verileri için
+- [OpenWeather](https://openweathermap.org/) - Hava durumu bilgileri için
+- [OpenCage](https://opencagedata.com/) - Geocoding servisleri için
+- [ExchangeRate-API](https://www.exchangerate-api.com/) - Döviz kurları için
 
-## 👏 Acknowledgments
+## 📬 İletişim
 
-- [RestCountries](https://restcountries.com/) for the comprehensive country data
-- [OpenWeather](https://openweathermap.org/) for weather information
-- [OpenCage](https://opencagedata.com/) for geocoding services
-- [ExchangeRate-API](https://www.exchangerate-api.com/) for currency conversion
+Mehmet KAPLAN - [LinkedIn](https://www.linkedin.com/in/mehmetkaplanse/)
 
-## 📬 Contact
-
-Project Link: [https://github.com/yourusername/country-information-system](https://github.com/yourusername/country-information-system)
+Proje Linki: [https://github.com/mehmetkaplanse/Country-Information-System](https://github.com/mehmetkaplanse/Country-Information-System)
 
 ---
 
 <div align="center">
-Made with  by Mehmet Kaplan
+Made with ❤️ by Mehmet KAPLAN
 </div>

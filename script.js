@@ -1,44 +1,88 @@
-// Config dosyasını kaldır
-// import config from "./config.js";
-// const weatherApiKey = config.weatherApiKey;
-// const geocodeApiKey = config.geocodeApiKey;
-// const exchangeRateApiKey = config.exchangeRateApiKey;
-
 // Ülke listesi için global değişken
 let countries = [];
 
 // Sayfa yüklendiğinde ülke listesini al
 document.addEventListener("DOMContentLoaded", async () => {
-  async function fetchCountriesWithRetry(retries = 3) {
+  async function fetchWithTimeout(url, options = {}) {
+    const { timeout = 5000 } = options;
+    
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(id);
+      return response;
+    } catch (error) {
+      clearTimeout(id);
+      throw error;
+    }
+  }
+
+  async function fetchCountriesWithRetry(retries = 5) {
     let lastError = null;
+    let delay = 2000; // İlk bekleme süresi
+  
     for (let i = 0; i < retries; i++) {
       try {
         console.info(`🌍 Ülke verileri yükleniyor... (${i + 1}/${retries})`);
-        
-        const response = await fetch("http://localhost:3000/api/countries");
-        
+  
+        const response = await fetchWithTimeout("http://localhost:3000/api/countries", {
+          timeout: 8000, // 8 saniye timeout
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+  
         if (!response.ok) {
           throw new Error(`Sunucu hatası: ${response.status}`);
         }
-
+  
         const data = await response.json();
-        
-        // Veri doğrulama
+  
         if (!Array.isArray(data) || data.length === 0) {
-          throw new Error('Geçersiz veri formatı');
+          throw new Error("Geçersiz veri formatı");
         }
-
+  
+        // Veriyi önbelleğe al
+        localStorage.setItem('countriesCache', JSON.stringify({
+          data: data,
+          timestamp: Date.now()
+        }));
+  
         console.info(`✅ ${data.length} ülke başarıyla yüklendi`);
         return data;
+  
       } catch (error) {
         lastError = error;
         console.warn(`❌ Deneme ${i + 1} başarısız: ${error.message}`);
+        
+        // Son denemede değilsek tekrar dene
         if (i < retries - 1) {
-          console.info('🔄 2 saniye sonra tekrar denenecek...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          console.info(`🔄 ${delay/1000} saniye sonra tekrar denenecek...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 1.5; // Her denemede bekleme süresini artır
         }
       }
     }
+  
+    // Tüm denemeler başarısız olduysa önbellekteki verileri kontrol et
+    const cachedData = localStorage.getItem('countriesCache');
+    if (cachedData) {
+      const { data, timestamp } = JSON.parse(cachedData);
+      const cacheAge = Date.now() - timestamp;
+      
+      // Önbellek 1 saatten eski değilse kullan
+      if (cacheAge < 3600000) {
+        console.info('📦 Önbellekteki veriler kullanılıyor...');
+        return data;
+      }
+    }
+  
     throw new Error(`Ülke verileri yüklenemedi: ${lastError?.message}`);
   }
 
@@ -60,50 +104,54 @@ function initializeAutocomplete() {
   autocompleteContainer.setAttribute("class", "autocomplete-items");
   searchInput.parentNode.appendChild(autocompleteContainer);
 
-  searchInput.addEventListener("input", function(e) {
+  searchInput.addEventListener("input", function (e) {
     const val = this.value.trim();
-    
+
     autocompleteContainer.innerHTML = "";
     autocompleteContainer.style.display = "none";
 
     if (!val) return false;
 
     if (!Array.isArray(countries)) {
-      console.error('Countries data is not available');
+      console.error("Countries data is not available");
       return;
     }
 
     // Eşleşen ülkeleri bul
     const matches = countries
-      .filter(country => {
+      .filter((country) => {
         if (!country?.name?.common) return false;
-        
+
         const searchVal = val.toLowerCase();
         const commonName = country.name.common.toLowerCase();
         const officialName = country.name.official.toLowerCase();
-        
-        return commonName.includes(searchVal) || officialName.includes(searchVal);
+
+        return (
+          commonName.includes(searchVal) || officialName.includes(searchVal)
+        );
       })
       .sort((a, b) => {
         const aName = a.name.common.toLowerCase();
         const bName = b.name.common.toLowerCase();
         const searchVal = val.toLowerCase();
-        
+
         // Tam eşleşmeleri öne çıkar
         if (aName === searchVal && bName !== searchVal) return -1;
         if (bName === searchVal && aName !== searchVal) return 1;
-        
+
         // Başlayan eşleşmeleri öne çıkar
-        if (aName.startsWith(searchVal) && !bName.startsWith(searchVal)) return -1;
-        if (bName.startsWith(searchVal) && !aName.startsWith(searchVal)) return 1;
-        
+        if (aName.startsWith(searchVal) && !bName.startsWith(searchVal))
+          return -1;
+        if (bName.startsWith(searchVal) && !aName.startsWith(searchVal))
+          return 1;
+
         return aName.localeCompare(bName);
       })
       .slice(0, 8);
 
     if (matches.length > 0) {
       autocompleteContainer.style.display = "block";
-      matches.forEach(country => {
+      matches.forEach((country) => {
         const div = document.createElement("div");
         div.className = "autocomplete-item";
 
@@ -116,10 +164,11 @@ function initializeAutocomplete() {
         flag.alt = `${country.name.common} flag`;
         flag.className = "country-flag";
         flag.loading = "lazy";
-        
+
         // Yedek bayrak resmi
         flag.onerror = () => {
-          flag.src = 'https://flagcdn.com/w40/' + country.cca2?.toLowerCase() + '.png';
+          flag.src =
+            "https://flagcdn.com/w40/" + country.cca2?.toLowerCase() + ".png";
         };
 
         // Ülke adı
@@ -130,7 +179,7 @@ function initializeAutocomplete() {
         // Başkent
         const capital = document.createElement("span");
         capital.className = "country-capital";
-        capital.textContent = country.capital?.[0] || '';
+        capital.textContent = country.capital?.[0] || "";
 
         itemContent.appendChild(flag);
         itemContent.appendChild(name);
@@ -266,19 +315,26 @@ async function getCountry(country) {
     const countryData = data[0];
     renderCountry(countryData);
 
-    // Komşu ülkeleri getir
+    // Komşu ülkelerin görüntülenmesi
     const borders = countryData.borders;
+    let neighborsHtml = '<div class="card mb-3"><div class="card-header">';
+    neighborsHtml +=
+      '<i class="fas fa-globe-americas me-2"></i>Komşu Ülkeler</div>';
+    neighborsHtml += '<div class="card-body">';
+
     if (!borders || !Array.isArray(borders) || borders.length === 0) {
-      document.querySelector("#neighbors").innerHTML = `
-        <div class="alert alert-info">
-          Bu ülkenin komşu ülkesi bulunmamaktadır.
-        </div>
-      `;
+      neighborsHtml += `
+        <div class="text-center py-4">
+          <i class="fas fa-map-marker-alt mb-3" style="font-size: 2rem; color: #6c757d;"></i>
+          <p class="lead mb-0">${countryData.name.common} bir ada ülkesidir veya kara sınırı bulunmamaktadır.</p>
+        </div>`;
+      neighborsHtml += "</div></div>";
+      document.querySelector("#neighbors").innerHTML = neighborsHtml;
       return;
     }
 
     const response2 = await fetch(
-      `http://localhost:3000/api/countries/codes/${borders.join(',')}`
+      `http://localhost:3000/api/countries/codes/${borders.join(",")}`
     );
 
     if (!response2.ok) {
@@ -287,8 +343,48 @@ async function getCountry(country) {
 
     const neighbors = await response2.json();
     if (Array.isArray(neighbors) && neighbors.length > 0) {
-      renderNeighbors(neighbors);
+      neighborsHtml += '<div class="neighbors-grid">';
+      neighbors.forEach((country) => {
+        neighborsHtml += `
+          <div class="neighbor-card" data-country="${country.name.common}">
+            <img src="${country.flags.png}" alt="${
+          country.name.common
+        } bayrağı">
+            <div class="neighbor-info">
+              <h3 class="neighbor-title">${country.name.common}</h3>
+              <div class="neighbor-details">
+                <div>
+                  <i class="fas fa-city"></i>
+                  Başkent: ${country.capital?.[0] || "Bilinmiyor"}
+                </div>
+                <div>
+                  <i class="fas fa-users"></i>
+                  Nüfus: ${(country.population / 1000000).toFixed(1)} milyon
+                </div>
+                <div>
+                  <i class="fas fa-globe"></i>
+                  Bölge: ${country.region}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      neighborsHtml += "</div>";
     }
+
+    neighborsHtml += "</div></div>";
+    document.querySelector("#neighbors").innerHTML = neighborsHtml;
+
+    // Komşu ülkelere tıklama olayı ekle
+    document.querySelectorAll(".neighbor-card").forEach((card) => {
+      card.addEventListener("click", function () {
+        const countryName = this.getAttribute("data-country");
+        document.querySelector("#txtSearch").value = countryName;
+        showLoading();
+        getCountry(countryName);
+      });
+    });
   } catch (err) {
     console.error("Country fetch error:", err);
     renderError(err);
@@ -325,7 +421,6 @@ const weatherIcons = {
 const weatherCache = new Map();
 const CACHE_DURATION = 10 * 60 * 1000; // 10 dakika
 
-// Hata ayıklama için konsol logları ekleyelim
 async function getWeatherData(lat, lng) {
   const cacheKey = `${lat},${lng}`;
   const now = Date.now();
@@ -333,42 +428,18 @@ async function getWeatherData(lat, lng) {
   if (weatherCache.has(cacheKey)) {
     const cachedData = weatherCache.get(cacheKey);
     if (now - cachedData.timestamp < CACHE_DURATION) {
-      console.info('📍 Önbellekten hava durumu verileri kullanılıyor');
       return cachedData.data;
     }
   }
 
-  try {
-    console.info('🌤️ Hava durumu verileri alınıyor:', { lat, lng });
-    
-    const response = await fetch(
-      `http://localhost:3000/api/weather?lat=${lat}&lon=${lng}`
-    );
-    
-    console.log('Weather API Response:', {
-      status: response.status,
-      ok: response.ok
-    });
+  const response = await fetch(
+    `http://localhost:3000/api/weather?lat=${lat}&lon=${lng}`
+  );
+  if (!response.ok) throw new Error("Hava durumu verisi alınamadı");
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Weather API Error Data:', errorData);
-      throw new Error(`HTTP error! status: ${response.status}, details: ${JSON.stringify(errorData)}`);
-    }
-
-    const data = await response.json();
-    console.info('✅ Hava durumu verileri alındı');
-
-    weatherCache.set(cacheKey, {
-      timestamp: now,
-      data: data,
-    });
-
-    return data;
-  } catch (error) {
-    console.error("❌ Hava durumu API hatası:", error);
-    throw new Error("Hava durumu verisi alınamadı");
-  }
+  const data = await response.json();
+  weatherCache.set(cacheKey, { timestamp: now, data });
+  return data;
 }
 
 function renderCountry(data) {
@@ -442,7 +513,7 @@ async function updateMap(data) {
   // Zoom kontrolünü sağ alt köşeye ekle
   L.control
     .zoom({
-      position: "bottomright",
+      position: "bottomleft",
     })
     .addTo(map);
 
@@ -577,7 +648,7 @@ async function updateWeatherInfo(cityName, lat, lng, isCapital = false) {
       <div class="weather-marker">
         <i class="${weatherIcons[weatherIcon]}"></i>
         <div>
-          <div class="temp">${temp}°C</div>
+          <div class="temp">${temp}</div>
           <div class="feels-like">Hissedilen: ${feelsLike}°C</div>
           <div class="city">${cityName}${isCapital ? " (Başkent)" : ""}</div>
           <div class="description">${description}</div>
@@ -742,17 +813,15 @@ async function updateCurrencyConverter(data) {
   const amount = document.getElementById("amount");
   const conversionResult = document.getElementById("conversionResult");
 
-  const countryCurrency = Object.keys(data.currencies)[0];
+  convertBtn.replaceWith(convertBtn.cloneNode(true));
+  const newConvertBtn = document.getElementById("convertBtn");
 
   try {
-    // Para birimi listesini al
-    const response = await fetch(
-      `http://localhost:3000/api/currency?from=USD`
-    );
+    const response = await fetch(`http://localhost:3000/api/currency?from=USD`);
     const currencyData = await response.json();
     const currencies = Object.keys(currencyData.rates);
+    const countryCurrency = Object.keys(data.currencies)[0];
 
-    // Select'leri doldur
     fromCurrencySelect.innerHTML = currencies
       .map(
         (currency) =>
@@ -766,8 +835,7 @@ async function updateCurrencyConverter(data) {
       .map((currency) => `<option value="${currency}">${currency}</option>`)
       .join("");
 
-    // Dönüştürme işlemi
-    convertBtn.addEventListener("click", async () => {
+    newConvertBtn.addEventListener("click", async () => {
       if (!amount.value) {
         renderError(new Error("Lütfen bir miktar giriniz"));
         return;
@@ -778,71 +846,41 @@ async function updateCurrencyConverter(data) {
         const toCurrency = toCurrencySelect.value;
         const amountValue = parseFloat(amount.value);
 
+        conversionResult.innerHTML =
+          '<div class="alert alert-info">Dönüştürülüyor...</div>';
+
         const response = await fetch(
           `http://localhost:3000/api/currency?from=${fromCurrency}&to=${toCurrency}&amount=${amountValue}`
         );
         const data = await response.json();
-        const rate = data.rates[toCurrency];
-        const result = amountValue * rate;
+        const result = amountValue * data.rates[toCurrency];
 
         conversionResult.innerHTML = `
-          <div class="alert alert-success">
-            ${amountValue} ${fromCurrency} = ${result.toFixed(2)} ${toCurrency}
-          </div>
-        `;
+                    <div class="alert alert-success">
+                        ${amountValue} ${fromCurrency} = ${result.toFixed(
+          2
+        )} ${toCurrency}
+                    </div>
+                `;
 
         setTimeout(() => {
-          conversionResult.innerHTML = '';
+          if (conversionResult.querySelector(".alert-success")) {
+            conversionResult.innerHTML = "";
+          }
         }, 5000);
-
       } catch (error) {
         renderError(new Error("Dönüştürme işlemi başarısız oldu"));
+        conversionResult.innerHTML = "";
       }
     });
   } catch (error) {
-    console.error("Para birimi listesi alınamadı:", error);
-  }
-}
-
-function renderNeighbors(data) {
-  let html = '<div class="neighbors-grid">';
-  for (let country of data) {
-    html += `
-            <div class="neighbor-card" data-country="${country.name.common}">
-              <img src="${country.flags.png}" alt="${
-      country.name.common
-    } bayrağı">
-              <div class="neighbor-info">
-                <h3 class="neighbor-title">${country.name.common}</h3>
-                <div class="neighbor-details">
-                  <div>
-                    <i class="fas fa-city"></i>
-                    Başkent: ${country.capital?.[0] || "Bilinmiyor"}
-                  </div>
-                  <div>
-                    <i class="fas fa-users"></i>
-                    Nüfus: ${(country.population / 1000000).toFixed(1)} milyon
-                  </div>
-                  <div>
-                    <i class="fas fa-globe"></i>
-                    Bölge: ${country.region}
-                  </div>
-                </div>
-              </div>
+    console.error("Para birimi listesi alınamadı");
+    conversionResult.innerHTML = `
+            <div class="alert alert-danger">
+                Para birimi listesi yüklenemedi
             </div>
-          `;
+        `;
   }
-  html += "</div>";
-  document.querySelector("#neighbors").innerHTML = html;
-
-  document.querySelectorAll(".neighbor-card").forEach((card) => {
-    card.addEventListener("click", function () {
-      const countryName = this.getAttribute("data-country");
-      document.querySelector("#txtSearch").value = countryName;
-      showLoading();
-      getCountry(countryName);
-    });
-  });
 }
 
 function renderError(err) {
