@@ -10,34 +10,36 @@ let countries = [];
 // Sayfa yüklendiğinde ülke listesini al
 document.addEventListener("DOMContentLoaded", async () => {
   async function fetchCountriesWithRetry(retries = 3) {
+    let lastError = null;
     for (let i = 0; i < retries; i++) {
       try {
-        console.log(`Attempting to fetch countries (attempt ${i + 1}/${retries})...`);
+        console.info(`🌍 Ülke verileri yükleniyor... (${i + 1}/${retries})`);
         
         const response = await fetch("http://localhost:3000/api/countries");
         
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error(`Sunucu hatası: ${response.status}`);
         }
 
         const data = await response.json();
         
         // Veri doğrulama
         if (!Array.isArray(data) || data.length === 0) {
-          throw new Error('Invalid data format received');
+          throw new Error('Geçersiz veri formatı');
         }
 
-        console.log(`Successfully loaded ${data.length} countries`);
+        console.info(`✅ ${data.length} ülke başarıyla yüklendi`);
         return data;
       } catch (error) {
-        console.error(`Attempt ${i + 1} failed:`, error);
-        if (i === retries - 1) {
-          throw new Error("Ülke verileri alınamadı");
+        lastError = error;
+        console.warn(`❌ Deneme ${i + 1} başarısız: ${error.message}`);
+        if (i < retries - 1) {
+          console.info('🔄 2 saniye sonra tekrar denenecek...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
-        // Bir sonraki denemeden önce 2 saniye bekle
-        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
+    throw new Error(`Ülke verileri yüklenemedi: ${lastError?.message}`);
   }
 
   try {
@@ -331,12 +333,13 @@ async function getWeatherData(lat, lng) {
   if (weatherCache.has(cacheKey)) {
     const cachedData = weatherCache.get(cacheKey);
     if (now - cachedData.timestamp < CACHE_DURATION) {
+      console.info('📍 Önbellekten hava durumu verileri kullanılıyor');
       return cachedData.data;
     }
   }
 
   try {
-    console.log('Sending weather request for:', { lat, lng });
+    console.info('🌤️ Hava durumu verileri alınıyor:', { lat, lng });
     
     const response = await fetch(
       `http://localhost:3000/api/weather?lat=${lat}&lon=${lng}`
@@ -354,7 +357,7 @@ async function getWeatherData(lat, lng) {
     }
 
     const data = await response.json();
-    console.log('Weather data received:', data);
+    console.info('✅ Hava durumu verileri alındı');
 
     weatherCache.set(cacheKey, {
       timestamp: now,
@@ -363,7 +366,7 @@ async function getWeatherData(lat, lng) {
 
     return data;
   } catch (error) {
-    console.error("Weather API Error:", error);
+    console.error("❌ Hava durumu API hatası:", error);
     throw new Error("Hava durumu verisi alınamadı");
   }
 }

@@ -111,10 +111,11 @@ app.get('/api/countries', async (req, res) => {
     try {
         const now = Date.now();
         if (cachedCountries && (now - lastFetch < CACHE_DURATION)) {
+            console.info('📦 Önbellekten ülke verileri gönderiliyor');
             return res.json(cachedCountries);
         }
 
-        console.log('Fetching all countries...');
+        console.info('🌐 Ülke verileri getiriliyor...');
         const response = await axios.get('https://restcountries.com/v3.1/all', {
             timeout: 5000
         });
@@ -152,19 +153,18 @@ app.get('/api/countries', async (req, res) => {
         cachedCountries = processedData;
         lastFetch = now;
 
-        console.log(`Successfully processed ${processedData.length} countries`);
+        console.info(`✅ ${processedData.length} ülke işlendi`);
         return res.json(processedData);
     } catch (error) {
-        console.error('Countries API Error:', error.message);
+        console.error('❌ Ülke API Hatası:', error.message);
         
-        // Önbellekte veri varsa onu kullan
         if (cachedCountries) {
-            console.log('Serving cached country data');
+            console.info('⚠️ Yedek veriler kullanılıyor');
             return res.json(cachedCountries);
         }
 
         res.status(500).json({ 
-            error: 'Countries data fetch failed',
+            error: 'Ülke verileri alınamadı',
             details: error.message 
         });
     }
