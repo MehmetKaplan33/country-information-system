@@ -45,7 +45,7 @@
 
 1. Repoyu klonlayın
 ```bash
-git clone https://github.com/mehmetkaplanse/Country-Information-System.git
+git clone https://github.com/MehmetKaplan33/Country-Information-System
 ```
 
 2. Proje dizinine gidin
@@ -106,9 +106,12 @@ Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICE
 
 ## 📬 İletişim
 
-Mehmet KAPLAN - [LinkedIn](https://www.linkedin.com/in/mehmetkaplanse/)
+Mehmet Kaplan
 
-Proje Linki: [https://github.com/mehmetkaplanse/Country-Information-System](https://github.com/mehmetkaplanse/Country-Information-System)
+- GitHub: [@Kaplan_Mehmet_33]([https://github.com/mehmetkaplan](https://github.com/MehmetKaplan33))
+- LinkedIn: [Mehmet Kaplan](https://www.linkedin.com/in/mehmet-kaplan-601013294/)
+
+Proje Linki: [https://github.com/MehmetKaplan33/Country-Information-System](https://github.com/MehmetKaplan33/Country-Information-System)
 
 ---
 
