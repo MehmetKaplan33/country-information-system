@@ -1,22 +1,52 @@
-import config from "./config.js";
-
-const weatherApiKey = config.weatherApiKey;
-const geocodeApiKey = config.geocodeApiKey;
-const exchangeRateApiKey = config.exchangeRateApiKey;
+// Config dosyasını kaldır
+// import config from "./config.js";
+// const weatherApiKey = config.weatherApiKey;
+// const geocodeApiKey = config.geocodeApiKey;
+// const exchangeRateApiKey = config.exchangeRateApiKey;
 
 // Ülke listesi için global değişken
 let countries = [];
 
 // Sayfa yüklendiğinde ülke listesini al
 document.addEventListener("DOMContentLoaded", async () => {
+  async function fetchCountriesWithRetry(retries = 3) {
+    for (let i = 0; i < retries; i++) {
+      try {
+        console.log(`Attempting to fetch countries (attempt ${i + 1}/${retries})...`);
+        
+        const response = await fetch("http://localhost:3000/api/countries");
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        // Veri doğrulama
+        if (!Array.isArray(data) || data.length === 0) {
+          throw new Error('Invalid data format received');
+        }
+
+        console.log(`Successfully loaded ${data.length} countries`);
+        return data;
+      } catch (error) {
+        console.error(`Attempt ${i + 1} failed:`, error);
+        if (i === retries - 1) {
+          throw new Error("Ülke verileri alınamadı");
+        }
+        // Bir sonraki denemeden önce 2 saniye bekle
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+  }
+
   try {
-    const response = await fetch("https://restcountries.com/v3.1/all");
-    if (!response.ok) throw new Error("Ülke verileri alınamadı");
-    countries = await response.json();
+    countries = await fetchCountriesWithRetry();
     console.log("Ülkeler yüklendi:", countries.length);
     initializeAutocomplete();
   } catch (error) {
     console.error("Ülke listesi yüklenirken hata oluştu:", error);
+    renderError(error);
   }
 });
 
@@ -24,56 +54,88 @@ function initializeAutocomplete() {
   const searchInput = document.querySelector("#txtSearch");
   let currentFocus = -1;
 
-  // Otomatik tamamlama container'ını oluştur
   const autocompleteContainer = document.createElement("div");
   autocompleteContainer.setAttribute("class", "autocomplete-items");
   searchInput.parentNode.appendChild(autocompleteContainer);
 
-  // Input değeri değiştiğinde
-  searchInput.addEventListener("input", function (e) {
-    const val = this.value;
-    console.log("Arama değeri:", val);
-
-    // Mevcut listeyi temizle
+  searchInput.addEventListener("input", function(e) {
+    const val = this.value.trim();
+    
     autocompleteContainer.innerHTML = "";
     autocompleteContainer.style.display = "none";
 
     if (!val) return false;
 
+    if (!Array.isArray(countries)) {
+      console.error('Countries data is not available');
+      return;
+    }
+
     // Eşleşen ülkeleri bul
     const matches = countries
-      .filter((country) => {
+      .filter(country => {
+        if (!country?.name?.common) return false;
+        
+        const searchVal = val.toLowerCase();
         const commonName = country.name.common.toLowerCase();
-        const nativeName = country.name.nativeName
-          ? Object.values(country.name.nativeName)[0].common.toLowerCase()
-          : "";
-        return (
-          commonName.includes(val.toLowerCase()) ||
-          nativeName.includes(val.toLowerCase())
-        );
+        const officialName = country.name.official.toLowerCase();
+        
+        return commonName.includes(searchVal) || officialName.includes(searchVal);
       })
-      .slice(0, 8); // En fazla 8 sonuç göster
-
-    console.log("Eşleşen ülkeler:", matches.length);
+      .sort((a, b) => {
+        const aName = a.name.common.toLowerCase();
+        const bName = b.name.common.toLowerCase();
+        const searchVal = val.toLowerCase();
+        
+        // Tam eşleşmeleri öne çıkar
+        if (aName === searchVal && bName !== searchVal) return -1;
+        if (bName === searchVal && aName !== searchVal) return 1;
+        
+        // Başlayan eşleşmeleri öne çıkar
+        if (aName.startsWith(searchVal) && !bName.startsWith(searchVal)) return -1;
+        if (bName.startsWith(searchVal) && !aName.startsWith(searchVal)) return 1;
+        
+        return aName.localeCompare(bName);
+      })
+      .slice(0, 8);
 
     if (matches.length > 0) {
       autocompleteContainer.style.display = "block";
-      matches.forEach((country) => {
+      matches.forEach(country => {
         const div = document.createElement("div");
+        div.className = "autocomplete-item";
 
-        // Bayrak resmi ekle
-        const flagImg = document.createElement("img");
-        flagImg.src = country.flags.png;
-        flagImg.alt = `${country.name.common} bayrağı`;
-        div.appendChild(flagImg);
+        const itemContent = document.createElement("div");
+        itemContent.className = "autocomplete-item-content";
 
-        // Ülke adını ekle
-        const nameSpan = document.createElement("span");
-        nameSpan.textContent = country.name.common;
-        div.appendChild(nameSpan);
+        // Bayrak ekle
+        const flag = new Image();
+        flag.src = country.flags.png;
+        flag.alt = `${country.name.common} flag`;
+        flag.className = "country-flag";
+        flag.loading = "lazy";
+        
+        // Yedek bayrak resmi
+        flag.onerror = () => {
+          flag.src = 'https://flagcdn.com/w40/' + country.cca2?.toLowerCase() + '.png';
+        };
 
-        // Tıklama olayı ekle
-        div.addEventListener("click", function (e) {
+        // Ülke adı
+        const name = document.createElement("span");
+        name.className = "country-name";
+        name.textContent = country.name.common;
+
+        // Başkent
+        const capital = document.createElement("span");
+        capital.className = "country-capital";
+        capital.textContent = country.capital?.[0] || '';
+
+        itemContent.appendChild(flag);
+        itemContent.appendChild(name);
+        itemContent.appendChild(capital);
+        div.appendChild(itemContent);
+
+        div.addEventListener("click", () => {
           searchInput.value = country.name.common;
           autocompleteContainer.style.display = "none";
           getCountry(country.name.common);
@@ -172,7 +234,7 @@ async function onSuccess(position) {
   let lat = position.coords.latitude;
   let lng = position.coords.longitude;
 
-  const url = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${geocodeApiKey}`;
+  const url = `http://localhost:3000/api/geocode?lat=${lat}&lng=${lng}`;
 
   const response = await fetch(url);
   const data = await response.json();
@@ -185,15 +247,26 @@ async function onSuccess(position) {
 
 async function getCountry(country) {
   try {
+    showLoading();
     const response = await fetch(
-      "https://restcountries.com/v3.1/name/" + country
+      `http://localhost:3000/api/countries/name/${encodeURIComponent(country)}`
     );
-    if (!response.ok) throw new Error("ülke bulunamadı");
-    const data = await response.json();
-    renderCountry(data[0]);
 
-    const countries = data[0].borders;
-    if (!countries) {
+    if (!response.ok) {
+      throw new Error("Ülke bulunamadı");
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("Ülke verisi alınamadı");
+    }
+
+    const countryData = data[0];
+    renderCountry(countryData);
+
+    // Komşu ülkeleri getir
+    const borders = countryData.borders;
+    if (!borders || !Array.isArray(borders) || borders.length === 0) {
       document.querySelector("#neighbors").innerHTML = `
         <div class="alert alert-info">
           Bu ülkenin komşu ülkesi bulunmamaktadır.
@@ -203,13 +276,22 @@ async function getCountry(country) {
     }
 
     const response2 = await fetch(
-      "https://restcountries.com/v3.1/alpha?codes=" + countries.toString()
+      `http://localhost:3000/api/countries/codes/${borders.join(',')}`
     );
-    const neighbors = await response2.json();
 
-    renderNeighbors(neighbors);
+    if (!response2.ok) {
+      throw new Error("Komşu ülkeler getirilemedi");
+    }
+
+    const neighbors = await response2.json();
+    if (Array.isArray(neighbors) && neighbors.length > 0) {
+      renderNeighbors(neighbors);
+    }
   } catch (err) {
+    console.error("Country fetch error:", err);
     renderError(err);
+  } finally {
+    hideLoading();
   }
 }
 
@@ -241,11 +323,11 @@ const weatherIcons = {
 const weatherCache = new Map();
 const CACHE_DURATION = 10 * 60 * 1000; // 10 dakika
 
+// Hata ayıklama için konsol logları ekleyelim
 async function getWeatherData(lat, lng) {
   const cacheKey = `${lat},${lng}`;
   const now = Date.now();
 
-  // Önbellekteki veriyi kontrol et
   if (weatherCache.has(cacheKey)) {
     const cachedData = weatherCache.get(cacheKey);
     if (now - cachedData.timestamp < CACHE_DURATION) {
@@ -253,21 +335,37 @@ async function getWeatherData(lat, lng) {
     }
   }
 
-  // Yeni veri al
-  const response = await fetch(
-    `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${weatherApiKey}&units=metric&lang=tr`
-  );
-  if (!response.ok) throw new Error("Hava durumu verisi alınamadı");
+  try {
+    console.log('Sending weather request for:', { lat, lng });
+    
+    const response = await fetch(
+      `http://localhost:3000/api/weather?lat=${lat}&lon=${lng}`
+    );
+    
+    console.log('Weather API Response:', {
+      status: response.status,
+      ok: response.ok
+    });
 
-  const data = await response.json();
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Weather API Error Data:', errorData);
+      throw new Error(`HTTP error! status: ${response.status}, details: ${JSON.stringify(errorData)}`);
+    }
 
-  // Veriyi önbelleğe al
-  weatherCache.set(cacheKey, {
-    timestamp: now,
-    data: data,
-  });
+    const data = await response.json();
+    console.log('Weather data received:', data);
 
-  return data;
+    weatherCache.set(cacheKey, {
+      timestamp: now,
+      data: data,
+    });
+
+    return data;
+  } catch (error) {
+    console.error("Weather API Error:", error);
+    throw new Error("Hava durumu verisi alınamadı");
+  }
 }
 
 function renderCountry(data) {
@@ -430,21 +528,25 @@ async function updateMap(data) {
         if (countryLayer.getBounds().contains(e.latlng)) {
           // 300ms bekleyerek art arda tıklamaları engelle
           clickTimeout = setTimeout(async () => {
-            const geocodeResponse = await fetch(
-              `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${geocodeApiKey}`
-            );
-            const geocodeData = await geocodeResponse.json();
+            try {
+              const response = await fetch(
+                `http://localhost:3000/api/geocode?lat=${lat}&lng=${lng}`
+              );
+              const data = await response.json();
 
-            if (geocodeData.results && geocodeData.results.length > 0) {
-              const result = geocodeData.results[0];
-              const cityName =
-                result.components.city ||
-                result.components.town ||
-                result.components.village ||
-                result.components.county ||
-                "Bilinmeyen Bölge";
+              if (data.results && data.results.length > 0) {
+                const result = data.results[0];
+                const cityName =
+                  result.components.city ||
+                  result.components.town ||
+                  result.components.village ||
+                  result.components.county ||
+                  "Bilinmeyen Bölge";
 
-              await updateWeatherInfo(cityName, lat, lng, false);
+                await updateWeatherInfo(cityName, lat, lng, false);
+              }
+            } catch (error) {
+              console.error("Geocoding error:", error);
             }
           }, 300);
         }
@@ -637,67 +739,66 @@ async function updateCurrencyConverter(data) {
   const amount = document.getElementById("amount");
   const conversionResult = document.getElementById("conversionResult");
 
-  // Para birimlerini al
   const countryCurrency = Object.keys(data.currencies)[0];
 
-  // API anahtarı
-  const apiKey = exchangeRateApiKey;
+  try {
+    // Para birimi listesini al
+    const response = await fetch(
+      `http://localhost:3000/api/currency?from=USD`
+    );
+    const currencyData = await response.json();
+    const currencies = Object.keys(currencyData.rates);
 
-  // Para birimi listesini güncelle
-  const response = await fetch(
-    "https://api.exchangerate-api.com/v4/latest/USD"
-  );
-  const currencyData = await response.json();
-  const currencies = Object.keys(currencyData.rates);
+    // Select'leri doldur
+    fromCurrencySelect.innerHTML = currencies
+      .map(
+        (currency) =>
+          `<option value="${currency}" ${
+            currency === countryCurrency ? "selected" : ""
+          }>${currency}</option>`
+      )
+      .join("");
 
-  // Select'leri doldur
-  fromCurrencySelect.innerHTML = currencies
-    .map(
-      (currency) =>
-        `<option value="${currency}" ${
-          currency === countryCurrency ? "selected" : ""
-        }>${currency}</option>`
-    )
-    .join("");
+    toCurrencySelect.innerHTML = currencies
+      .map((currency) => `<option value="${currency}">${currency}</option>`)
+      .join("");
 
-  toCurrencySelect.innerHTML = currencies
-    .map((currency) => `<option value="${currency}">${currency}</option>`)
-    .join("");
+    // Dönüştürme işlemi
+    convertBtn.addEventListener("click", async () => {
+      if (!amount.value) {
+        renderError(new Error("Lütfen bir miktar giriniz"));
+        return;
+      }
 
-  // Dönüştürme işlemi
-  convertBtn.addEventListener("click", async () => {
-    if (!amount.value) {
-      renderError(new Error("Lütfen bir miktar giriniz"));
-      return;
-    }
+      try {
+        const fromCurrency = fromCurrencySelect.value;
+        const toCurrency = toCurrencySelect.value;
+        const amountValue = parseFloat(amount.value);
 
-    try {
-      const fromCurrency = fromCurrencySelect.value;
-      const toCurrency = toCurrencySelect.value;
-      const amountValue = parseFloat(amount.value);
+        const response = await fetch(
+          `http://localhost:3000/api/currency?from=${fromCurrency}&to=${toCurrency}&amount=${amountValue}`
+        );
+        const data = await response.json();
+        const rate = data.rates[toCurrency];
+        const result = amountValue * rate;
 
-      const response = await fetch(
-        `https://api.exchangerate-api.com/v4/latest/${fromCurrency}`
-      );
-      const data = await response.json();
-      const rate = data.rates[toCurrency];
-      const result = amountValue * rate;
+        conversionResult.innerHTML = `
+          <div class="alert alert-success">
+            ${amountValue} ${fromCurrency} = ${result.toFixed(2)} ${toCurrency}
+          </div>
+        `;
 
-      conversionResult.innerHTML = `
-        <div class="alert alert-success">
-          ${amountValue} ${fromCurrency} = ${result.toFixed(2)} ${toCurrency}
-        </div>
-      `;
+        setTimeout(() => {
+          conversionResult.innerHTML = '';
+        }, 5000);
 
-      // 3 saniye sonra sonucu temizle
-      setTimeout(() => {
-        conversionResult.innerHTML = '';
-      }, 5000);
-
-    } catch (error) {
-      renderError(new Error("Dönüştürme işlemi başarısız oldu"));
-    }
-  });
+      } catch (error) {
+        renderError(new Error("Dönüştürme işlemi başarısız oldu"));
+      }
+    });
+  } catch (error) {
+    console.error("Para birimi listesi alınamadı:", error);
+  }
 }
 
 function renderNeighbors(data) {
